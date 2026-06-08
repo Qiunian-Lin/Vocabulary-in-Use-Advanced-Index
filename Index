@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VIU Advanced — Index</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-mark">VIU</span>
+        <span class="logo-sub">Advanced</span>
+      </div>
+      <nav class="site-nav">
+        <a href="index.html" class="nav-link active" data-page="index">Index</a>
+        <a href="study.html" class="nav-link" data-page="study">Study</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-index">
+    <section class="hero">
+      <h1>Cambridge<br/><em>Vocabulary in Use</em><br/>Advanced</h1>
+      <p class="hero-sub">3,301 entries · phonetics · page references</p>
+    </section>
+
+    <section class="search-section">
+      <div class="search-wrap">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search words, phrases, or phonetics…"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <span class="search-icon">⌕</span>
+      </div>
+      <div class="filter-row">
+        <label class="filter-label">Filter:</label>
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="known">Known</button>
+        <button class="filter-btn" data-filter="unknown">To Study</button>
+        <button class="filter-btn" data-filter="notes">Has Notes</button>
+        <span class="result-count" id="resultCount"></span>
+      </div>
+    </section>
+
+    <section class="alphabet-nav" id="alphaNav"></section>
+
+    <section class="vocab-list" id="vocabList"></section>
+  </main>
+
+  <!-- Entry detail modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="entryModal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-term" id="modalTerm"></div>
+      <div class="modal-phonetic" id="modalPhonetic"></div>
+      <div class="modal-pages" id="modalPages"></div>
+      <div class="modal-status" id="modalStatus"></div>
+      <div class="modal-note-section">
+        <label class="note-label">Personal Note <span class="note-hint">(English definition / example)</span></label>
+        <textarea id="noteInput" class="note-input" placeholder="Add your own definition or example sentence…"></textarea>
+        <div class="modal-actions">
+          <button class="btn-known" id="btnKnown">Mark as Known ✓</button>
+          <button class="btn-unknown" id="btnUnknown">Move to Study ↺</button>
+          <button class="btn-save" id="btnSave">Save Note</button>
+        </div>
+      </div>
+      <div class="note-file-section">
+        <label class="note-label">Import / Export Notes</label>
+        <div class="note-file-row">
+          <button class="btn-export" id="btnExport">Export JSON ↓</button>
+          <label class="btn-import" for="importFile">Import JSON ↑</label>
+          <input type="file" id="importFile" accept=".json" style="display:none"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="vocab_data.js"></script>
+  <script src="store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
