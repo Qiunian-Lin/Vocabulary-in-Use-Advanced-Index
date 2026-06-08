@@ -4,27 +4,28 @@
  */
 
 const Store = (() => {
-  const KNOWN_KEY = 'viu_known';
-  const NOTES_KEY = 'viu_notes';
+  // Keys are prefixed with the current username → each user has isolated data
+  function knownKey() { return `viu_known:${Auth.currentUser()}`; }
+  function notesKey() { return `viu_notes:${Auth.currentUser()}`; }
 
   function getKnown() {
     try {
-      return new Set(JSON.parse(localStorage.getItem(KNOWN_KEY) || '[]'));
+      return new Set(JSON.parse(localStorage.getItem(knownKey()) || '[]'));
     } catch { return new Set(); }
   }
 
   function saveKnown(set) {
-    localStorage.setItem(KNOWN_KEY, JSON.stringify([...set]));
+    localStorage.setItem(knownKey(), JSON.stringify([...set]));
   }
 
   function getNotes() {
     try {
-      return JSON.parse(localStorage.getItem(NOTES_KEY) || '{}');
+      return JSON.parse(localStorage.getItem(notesKey()) || '{}');
     } catch { return {}; }
   }
 
   function saveNotes(obj) {
-    localStorage.setItem(NOTES_KEY, JSON.stringify(obj));
+    localStorage.setItem(notesKey(), JSON.stringify(obj));
   }
 
   function markKnown(term) {
