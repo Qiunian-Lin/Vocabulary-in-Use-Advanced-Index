@@ -16,6 +16,7 @@ const Store = (() => {
 
   function saveKnown(set) {
     localStorage.setItem(knownKey(), JSON.stringify([...set]));
+    if (typeof Sync !== 'undefined') Sync.push();
   }
 
   function getNotes() {
@@ -26,6 +27,7 @@ const Store = (() => {
 
   function saveNotes(obj) {
     localStorage.setItem(notesKey(), JSON.stringify(obj));
+    if (typeof Sync !== 'undefined') Sync.push();
   }
 
   function markKnown(term) {
