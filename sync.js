@@ -19,7 +19,7 @@
 
 const Sync = (() => {
   // ★ 替换为你的 OAuth 2.0 客户端 ID
-  const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+  const CLIENT_ID = '510628859840-mhsrbja2rengucjp8qjp9mfti0l9166d.apps.googleusercontent.com';
   const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
   let tokenClient  = null;
