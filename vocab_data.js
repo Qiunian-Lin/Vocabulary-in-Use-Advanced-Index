@@ -4,7 +4,6 @@
 
 
 const RAW_ENTRIES = `4x4 /ˌfɔːbaɪˈfɔː/ 27
-4x4 /ˌfɔːbaɪˈfɔː/ 27
 abhor /əbˈhɔː/ 14
 abhorrence /əbˈhɒrəns/ 14
 abhorrent /əbˈhɒrənt/ 14
