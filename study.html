@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Study — VIU Advanced</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-mark">VIU</span>
+        <span class="logo-sub">Advanced</span>
+      </div>
+      <nav class="site-nav">
+        <a href="index.html" class="nav-link" data-page="index">Index</a>
+        <a href="study.html" class="nav-link active" data-page="study">Study</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-study">
+    <div class="study-header">
+      <div class="study-stats">
+        <div class="stat-block">
+          <span class="stat-num" id="statRemaining">—</span>
+          <span class="stat-label">Remaining</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-num" id="statKnown">—</span>
+          <span class="stat-label">Known</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-num" id="statTotal">—</span>
+          <span class="stat-label">Total</span>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+
+    <div class="card-area" id="cardArea">
+      <div class="flashcard" id="flashcard">
+        <div class="card-front" id="cardFront">
+          <div class="card-term" id="cardTerm"></div>
+          <div class="card-hint">tap to reveal</div>
+        </div>
+        <div class="card-back" id="cardBack">
+          <div class="card-term-sm" id="cardTermSm"></div>
+          <div class="card-phonetic" id="cardPhonetic"></div>
+          <div class="card-pages" id="cardPages"></div>
+          <div class="card-note" id="cardNote"></div>
+        </div>
+      </div>
+      <div class="card-empty" id="cardEmpty" style="display:none">
+        <div class="empty-icon">✦</div>
+        <div class="empty-title">All done.</div>
+        <div class="empty-sub">You've gone through all remaining entries.</div>
+        <button class="btn-reset" id="btnReset">Reset Study Session</button>
+      </div>
+    </div>
+
+    <div class="card-controls" id="cardControls">
+      <button class="ctrl-btn ctrl-unknown" id="ctrlUnknown">
+        <span class="ctrl-icon">↺</span>
+        <span class="ctrl-text">Keep</span>
+      </button>
+      <button class="ctrl-btn ctrl-flip" id="ctrlFlip">
+        <span class="ctrl-icon">↕</span>
+        <span class="ctrl-text">Flip</span>
+      </button>
+      <button class="ctrl-btn ctrl-known" id="ctrlKnown">
+        <span class="ctrl-icon">✓</span>
+        <span class="ctrl-text">Known</span>
+      </button>
+    </div>
+  </main>
+
+  <script src="vocab_data.js"></script>
+  <script src="store.js"></script>
+  <script src="study.js"></script>
+</body>
+</html>
