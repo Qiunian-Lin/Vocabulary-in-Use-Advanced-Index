@@ -1,8 +1,9 @@
-cat << 'PYEOF' > /home/claude/parse_vocab.py
-import re
+// Cambridge English Vocabulary in Use Advanced — Index
+// 3301 entries: word/phrase + phonetic (optional) + page number(s)
+// Format per entry: { term, phonetic, pages }
 
-# All the text from the PDF pages - extract entries
-raw_entries = """
+
+const RAW_ENTRIES = `4x4 /ˌfɔːbaɪˈfɔː/ 27
 4x4 /ˌfɔːbaɪˈfɔː/ 27
 abhor /əbˈhɔː/ 14
 abhorrence /əbˈhɒrəns/ 14
@@ -3303,15 +3304,50 @@ your best bet 76
 your other half 97
 Yours faithfully 3
 zero hours contract 55
-zip (v.) /zɪp/ 66
-"""
+zip (v.) /zɪp/ 66`;
 
-lines = [l.strip() for l in raw_entries.strip().split('\n') if l.strip()]
-print(f"Total lines: {len(lines)}")
-print("Sample:", lines[:5])
-PYEOF
-python3 /home/claude/parse_vocab.py
-Output
-
-Total lines: 3301
-Sample: ['4x4 /ˌfɔːbaɪˈfɔː/ 27', 'abhor /əbˈhɔː/ 14', 'abhorrence /əbˈhɒrəns/ 14', 'abhorrent /əbˈhɒrənt/ 14', 'abject poverty 45']
+/**
+ * Parses a raw entry line into a structured vocab object.
+ * Supports formats:
+ *   word /phonetic/ page1,page2
+ *   phrase page1
+ *   prefix/suffix /phonetic/ page
+ */
+function parseEntry(line) {
+  line = line.trim();
+  if (!line) return null;
+ 
+  let term = '';
+  let phonetic = '';
+  let pages = [];
+ 
+  // Extract phonetic if present: everything between first / and last /
+  const phoneticMatch = line.match(/^(.+?)\s+(\/[^/]+\/)\s+(.+)$/);
+  if (phoneticMatch) {
+    term = phoneticMatch[1].trim();
+    phonetic = phoneticMatch[2].trim();
+    pages = phoneticMatch[3].split(',').map(p => p.trim()).filter(Boolean);
+  } else {
+    // No phonetic — last token(s) are page numbers
+    const parts = line.split(/\s+/);
+    const lastPart = parts[parts.length - 1];
+    if (/^[\d,]+$/.test(lastPart)) {
+      pages = lastPart.split(',').map(p => p.trim()).filter(Boolean);
+      term = parts.slice(0, -1).join(' ').trim();
+    } else {
+      term = line;
+    }
+  }
+ 
+  return { term, phonetic, pages };
+}
+ 
+const vocabData = RAW_ENTRIES
+  .split('\n')
+  .map(parseEntry)
+  .filter(Boolean);
+ 
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = vocabData;
+}
