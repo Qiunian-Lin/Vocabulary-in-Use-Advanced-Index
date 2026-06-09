@@ -7,7 +7,7 @@
  */
 
 const Sync = (() => {
-  const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // ★ 替换
+  const CLIENT_ID = '510628859840-mhsrbja2rengucjp8qjp9mfti0l9166d.apps.googleusercontent.com'; // ★ 替换
   const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
   let tokenClient = null;
