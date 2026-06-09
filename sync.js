@@ -1,40 +1,29 @@
 /**
  * sync.js — Google Drive 跨设备同步
- *
- * 每个用户的数据存为 Drive AppData 目录下的 viu_<username>.json
- * 使用 Google Identity Services (GSI) Token 模式 + Drive REST API
- *
  * 加载顺序：vocab_data.js → auth.js → sync.js → store.js → app/study.js
  *
- * ── 配置步骤 ──────────────────────────────────────────────────────────────
- * 1. https://console.cloud.google.com → 新建项目
- * 2. API 和服务 → 启用 Google Drive API
- * 3. OAuth 同意屏幕 → 外部 → 范围添加:
- *      https://www.googleapis.com/auth/drive.appdata
- * 4. 凭据 → OAuth 2.0 客户端 ID → Web 应用
- *    授权的 JavaScript 来源: https://你的用户名.github.io
- * 5. 替换下方 CLIENT_ID
- * ─────────────────────────────────────────────────────────────────────────
+ * ── 配置 CLIENT_ID ────────────────────────────────────────────────────────
+ * Google Cloud Console → 凭据 → OAuth 2.0 客户端 ID → 复制后替换下方字符串
  */
 
 const Sync = (() => {
-  // ★ 替换为你的 OAuth 2.0 客户端 ID
-  const CLIENT_ID = '510628859840-mhsrbja2rengucjp8qjp9mfti0l9166d.apps.googleusercontent.com';
+  const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // ★ 替换
   const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
-  let tokenClient  = null;
-  let accessToken  = null;   // 有值 = 已授权
-  let gsiLoaded    = false;
-  let pendingAuth  = null;   // 当前正在进行的授权 Promise
+  let tokenClient = null;
+  let accessToken = null;
+  let gsiLoaded   = false;
+  let pendingAuth = null;
+  let cachedFileId = null; // 缓存文件 ID，避免重复创建
 
-  // ── 文件名（每个用户名对应一个文件）──────────────────────────────────────
+  // ── 文件名（每个用户对应一个云端文件）──────────────────────────────────
   function fileName() {
     const u = Auth.currentUser();
     if (!u) return null;
     return 'viu_' + u.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_') + '.json';
   }
 
-  // ── 加载 GSI 脚本 ─────────────────────────────────────────────────────────
+  // ── GSI 加载 ──────────────────────────────────────────────────────────────
   function loadGsi() {
     return new Promise((resolve, reject) => {
       if (window.google?.accounts?.oauth2) { gsiLoaded = true; resolve(); return; }
@@ -46,54 +35,44 @@ const Sync = (() => {
     });
   }
 
-  // ── 初始化 tokenClient（只做一次）────────────────────────────────────────
   async function ensureTokenClient() {
     if (tokenClient) return;
     if (!gsiLoaded) await loadGsi();
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPE,
-      // callback 在 requestToken() 里动态赋值
       callback: () => {},
     });
   }
 
-  // ── 请求 token（弹窗授权）────────────────────────────────────────────────
-  // 同一时间只允许一个授权流程
   function requestToken(prompt = 'consent') {
     if (pendingAuth) return pendingAuth;
     pendingAuth = new Promise((resolve, reject) => {
       tokenClient.callback = (resp) => {
         pendingAuth = null;
-        if (resp.error) {
-          reject(new Error(resp.error_description || resp.error));
-        } else {
-          accessToken = resp.access_token;
-          resolve();
-        }
+        if (resp.error) reject(new Error(resp.error_description || resp.error));
+        else { accessToken = resp.access_token; resolve(); }
       };
       tokenClient.requestAccessToken({ prompt });
     });
     return pendingAuth;
   }
 
-  // ── 公开授权入口（按钮调用）──────────────────────────────────────────────
   async function authorize() {
     if (CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
-      throw new Error('CLIENT_ID 未配置，请先在 sync.js 中填入你的 Google OAuth 客户端 ID');
+      throw new Error('CLIENT_ID 未配置，请在 sync.js 中填入你的 Google OAuth 客户端 ID');
     }
     await ensureTokenClient();
     await requestToken('consent');
   }
 
-  // ── Drive REST 助手 ───────────────────────────────────────────────────────
+  // ── Drive REST ────────────────────────────────────────────────────────────
   async function driveReq(url, options = {}) {
     const res = await fetch(url, {
       ...options,
       headers: { 'Authorization': `Bearer ${accessToken}`, ...(options.headers || {}) },
     });
     if (res.status === 401) {
-      // token 过期，重新授权后重试一次
       await requestToken('');
       return driveReq(url, options);
     }
@@ -101,9 +80,9 @@ const Sync = (() => {
   }
 
   async function findFile(name) {
-    const q = encodeURIComponent(`name='${name}' and trashed=false`);
+    const q = encodeURIComponent(`name='${name}'`);
     const res = await driveReq(
-      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime+desc`
     );
     const d = await res.json();
     return d.files?.[0]?.id ?? null;
@@ -142,13 +121,16 @@ const Sync = (() => {
     );
   }
 
-  // ── 拉取（云端 → 本地，合并）────────────────────────────────────────────
+  // ── Pull：云端 → 本地，合并后通知页面刷新 ────────────────────────────────
   async function pull() {
-    if (!accessToken) return; // 未授权则跳过，不报错
+    if (!accessToken) return;
     const name = fileName();
     if (!name) return;
+
     const fileId = await findFile(name);
-    if (!fileId) return; // 新用户云端无数据
+    if (!fileId) { showBadge('云端暂无数据，本地数据将在下次操作后上传'); return; }
+    cachedFileId = fileId;
+
     const remote = await readFile(fileId);
     if (!remote || typeof remote !== 'object') return;
 
@@ -156,23 +138,27 @@ const Sync = (() => {
     const kKey = `viu_known:${u}`;
     const nKey = `viu_notes:${u}`;
 
-    // known：本地 ∪ 云端
+    // known：本地 ∪ 云端（两端都认识的才算认识）
     const local  = new Set(JSON.parse(localStorage.getItem(kKey) || '[]'));
     const cloud  = new Set(remote.known || []);
-    localStorage.setItem(kKey, JSON.stringify([...new Set([...local, ...cloud])]));
+    const merged = [...new Set([...local, ...cloud])];
+    localStorage.setItem(kKey, JSON.stringify(merged));
 
-    // notes：云端覆盖本地（最后一次保存获胜）
+    // notes：云端覆盖本地
     const lNotes = JSON.parse(localStorage.getItem(nKey) || '{}');
     const cNotes = remote.notes || {};
     localStorage.setItem(nKey, JSON.stringify({ ...lNotes, ...cNotes }));
 
-    showBadge('已同步 ↓');
+    showBadge(`已同步 ↓ · ${merged.length} 词已知`);
+
+    // 通知 app.js / study.js 刷新展示
+    window.dispatchEvent(new CustomEvent('viu:synced'));
   }
 
-  // ── 推送（本地 → 云端，防抖 2s）─────────────────────────────────────────
+  // ── Push：本地 → 云端（每次数据变更后防抖 2s 触发）─────────────────────
   let pushTimer = null;
   function push() {
-    if (!accessToken) return; // 未授权则跳过
+    if (!accessToken) return;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(async () => {
       try {
@@ -185,13 +171,13 @@ const Sync = (() => {
           notes: JSON.parse(localStorage.getItem(`viu_notes:${u}`) || '{}'),
           updated: new Date().toISOString(),
         };
-        const fileId = await findFile(name);
-        if (fileId) await updateFile(fileId, content);
-        else        await createFile(name, content);
-        showBadge('已同步 ↑');
+        if (!cachedFileId) cachedFileId = await findFile(name);
+        if (cachedFileId) await updateFile(cachedFileId, content);
+        else cachedFileId = await createFile(name, content);
+        showBadge(`已同步 ↑ · ${content.known.length} 词已知`);
       } catch (e) {
-        console.warn('[Sync] push 失败:', e.message);
-        showBadge('同步失败', true);
+        console.warn('[Sync] push 失败:', e);
+        showBadge('推送失败: ' + e.message, true);
       }
     }, 2000);
   }
@@ -207,23 +193,11 @@ const Sync = (() => {
         font-family: var(--mono); font-size: 0.65rem; font-weight: 300;
         color: var(--ink-3); background: var(--paper-2);
         border: 1px solid var(--paper-3); border-radius: 20px;
-        padding: 4px 12px; opacity: 0;
+        padding: 4px 14px; opacity: 0;
         transition: opacity 0.3s; pointer-events: none;
       }
       #syncBadge.visible { opacity: 1; }
       #syncBadge.err { color: var(--accent); border-color: var(--accent); }
-      #syncConnectBtn {
-        padding: 4px 10px;
-        font-family: var(--mono); font-size: 0.65rem; font-weight: 300;
-        color: #888; text-transform: uppercase; letter-spacing: 0.1em;
-        border: 1px solid #444; border-radius: 3px;
-        background: transparent; cursor: pointer;
-        transition: color 0.12s, border-color 0.12s;
-        white-space: nowrap;
-      }
-      #syncConnectBtn:hover { color: #fff; border-color: #888; }
-      #syncConnectBtn.on { color: #6dbf8a; border-color: #6dbf8a; cursor: default; }
-      #syncConnectBtn:disabled { opacity: 0.5; cursor: wait; }
     `;
     document.head.appendChild(s);
   }
@@ -232,67 +206,46 @@ const Sync = (() => {
   function showBadge(text, isErr = false) {
     injectStyles();
     let el = document.getElementById('syncBadge');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'syncBadge';
-      document.body.appendChild(el);
-    }
+    if (!el) { el = document.createElement('div'); el.id = 'syncBadge'; document.body.appendChild(el); }
     el.textContent = text;
     el.className = 'visible' + (isErr ? ' err' : '');
     clearTimeout(badgeTimer);
-    badgeTimer = setTimeout(() => { el.className = ''; }, 2800);
+    badgeTimer = setTimeout(() => { el.className = ''; }, 3500);
   }
 
-  function mountSyncButton() {
-    injectStyles();
-    if (document.getElementById('syncConnectBtn')) return;
-    const badge = document.getElementById('headerUserBadge');
-    if (!badge) return;
+  // ── 绑定 dropdown 里的同步按钮（auth.js 已渲染 id="hdSyncBtn"）────────────
+  function bindSyncButton() {
+    const btn = document.getElementById('hdSyncBtn');
+    if (!btn || btn.dataset.syncBound) return;
+    btn.dataset.syncBound = '1';
 
-    const btn = document.createElement('button');
-    btn.id = 'syncConnectBtn';
-    btn.textContent = '同步';
-    btn.title = '连接 Google Drive，跨设备同步数据';
-    badge.appendChild(btn);
-
-    btn.addEventListener('click', async () => {
-      if (btn.classList.contains('on')) return;
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (btn.classList.contains('sync-connected')) return;
       btn.disabled = true;
       btn.textContent = '授权中…';
       try {
-        await authorize();               // 弹出 Google 授权窗口
+        await authorize();
         btn.textContent = '同步中…';
-        await pull();                    // 拉取云端数据
-        btn.textContent = '已连接';
-        btn.classList.add('on');
+        await pull();
+        btn.textContent = '已同步 ✓';
+        btn.classList.add('sync-connected');
         btn.disabled = false;
-        // 刷新页面展示
-        if (typeof render === 'function') render();
-        if (typeof showCard === 'function') showCard();
-      } catch (e) {
-        btn.textContent = '同步';
+      } catch (err) {
+        btn.textContent = '连接同步';
         btn.disabled = false;
-        // 把真实错误信息显示出来，方便排查
-        showBadge('授权失败: ' + e.message, true);
-        console.error('[Sync] 授权失败:', e);
+        showBadge('失败: ' + err.message, true);
+        console.error('[Sync]', err);
       }
     });
   }
 
-  // 监听 headerUserBadge 挂载后插入同步按钮
   const obs = new MutationObserver(() => {
-    if (document.getElementById('headerUserBadge') && !document.getElementById('syncConnectBtn')) {
-      mountSyncButton();
-    }
+    if (document.getElementById('hdSyncBtn')) bindSyncButton();
   });
-  function startObserver() {
-    obs.observe(document.body, { childList: true, subtree: true });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startObserver);
-  } else {
-    startObserver();
-  }
+  function startObs() { obs.observe(document.body, { childList: true, subtree: true }); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObs);
+  else startObs();
 
   return { authorize, pull, push };
 })();
