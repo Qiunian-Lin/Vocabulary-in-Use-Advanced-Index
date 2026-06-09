@@ -7,7 +7,7 @@
  */
 
 const Sync = (() => {
-  const CLIENT_ID = '510628859840-mhsrbja2rengucjp8qjp9mfti0l9166d.apps.googleusercontent.com'; // ★ 替换
+  const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // ★ 替换
   const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
   let tokenClient = null;
@@ -23,15 +23,21 @@ const Sync = (() => {
     return 'viu_' + u.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_') + '.json';
   }
 
-  // ── GSI 加载 ──────────────────────────────────────────────────────────────
+  // ── 等待 GSI 就绪（脚本已在 HTML head 中加载）──────────────────────────
   function loadGsi() {
     return new Promise((resolve, reject) => {
       if (window.google?.accounts?.oauth2) { gsiLoaded = true; resolve(); return; }
-      const s = document.createElement('script');
-      s.src = 'https://accounts.google.com/gsi/client';
-      s.onload = () => { gsiLoaded = true; resolve(); };
-      s.onerror = () => reject(new Error('GSI 脚本加载失败，请检查网络'));
-      document.head.appendChild(s);
+      // 轮询等待，最多 10 秒
+      let waited = 0;
+      const t = setInterval(() => {
+        waited += 100;
+        if (window.google?.accounts?.oauth2) {
+          clearInterval(t); gsiLoaded = true; resolve();
+        } else if (waited >= 10000) {
+          clearInterval(t);
+          reject(new Error('Google 授权服务加载超时，请确认网络可访问 Google（需要 VPN）'));
+        }
+      }, 100);
     });
   }
 
