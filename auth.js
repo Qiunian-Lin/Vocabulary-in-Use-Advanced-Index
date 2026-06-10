@@ -119,7 +119,7 @@ const Auth = (() => {
     overlay.innerHTML = `
       <div class="auth-box">
         <div class="auth-logo">VIU <em>Advanced</em></div>
-        <div class="auth-sub">登录后数据云端保存，换设备可继续</div>
+        <div class="auth-sub">登录后数据云端保存</div>
         <label class="auth-label">用户名</label>
         <input class="auth-input" id="authUser" type="text"
                placeholder="用户名" maxlength="24" autocomplete="username"/>
